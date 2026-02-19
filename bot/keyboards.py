@@ -7,12 +7,14 @@ from aiogram.types import (
 
 CHOOSE_SHEETS = "Выбрать ноты"
 UPLOAD_SHEETS = "Загрузить ноты"
+CIFROVKI = "Цифровки"
 
 
 def get_start_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=CHOOSE_SHEETS), KeyboardButton(text=UPLOAD_SHEETS)]
+            [KeyboardButton(text=CHOOSE_SHEETS), KeyboardButton(text=UPLOAD_SHEETS)],
+            [KeyboardButton(text=CIFROVKI)],
         ],
         resize_keyboard=True,
     )
@@ -100,6 +102,70 @@ def get_more_files_keyboard() -> InlineKeyboardMarkup:
                     text="Загрузить ещё", callback_data="upload_more"
                 ),
                 InlineKeyboardButton(text="Готово", callback_data="upload_done"),
+            ]
+        ]
+    )
+
+
+# ── Cifrovka keyboards ──
+
+
+def get_cifrovka_folder_keyboard(
+    folders: list[dict],
+) -> InlineKeyboardMarkup:
+    buttons = [
+        [InlineKeyboardButton(text=f["name"], callback_data=f"cif_f:{i}")]
+        for i, f in enumerate(folders)
+    ]
+    buttons.append(
+        [InlineKeyboardButton(text="Назад", callback_data="cif_back")]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_cifrovka_actions_keyboard(has_cifrovka: bool) -> InlineKeyboardMarkup:
+    if has_cifrovka:
+        buttons = [
+            [
+                InlineKeyboardButton(text="Все версии", callback_data="cif_versions"),
+                InlineKeyboardButton(text="Новая версия", callback_data="cif_new"),
+            ],
+            [
+                InlineKeyboardButton(text="Редактировать", callback_data="cif_edit"),
+                InlineKeyboardButton(text="Удалить", callback_data="cif_delete"),
+            ],
+            [InlineKeyboardButton(text="Назад", callback_data="cif_back")],
+        ]
+    else:
+        buttons = [
+            [InlineKeyboardButton(text="Создать", callback_data="cif_new")],
+            [InlineKeyboardButton(text="Назад", callback_data="cif_back")],
+        ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_cifrovka_versions_keyboard(
+    versions: list,
+) -> InlineKeyboardMarkup:
+    buttons = [
+        [InlineKeyboardButton(
+            text=f"v{v.version} ({v.created_at[:10]}) — {v.author}",
+            callback_data=f"cif_v:{v.version}",
+        )]
+        for v in versions
+    ]
+    buttons.append(
+        [InlineKeyboardButton(text="Назад", callback_data="cif_back_view")]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_cifrovka_delete_confirm_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="Да, удалить", callback_data="cif_del_yes"),
+                InlineKeyboardButton(text="Отмена", callback_data="cif_del_no"),
             ]
         ]
     )

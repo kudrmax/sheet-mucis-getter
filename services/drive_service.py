@@ -60,7 +60,9 @@ class DriveService:
 
     def _get_start_page_token(self) -> str:
         result = _with_retry(
-            self.service.changes().getStartPageToken().execute
+            self.service.changes()
+            .getStartPageToken(supportsAllDrives=True)
+            .execute
         )
         return result["startPageToken"]
 
@@ -73,6 +75,8 @@ class DriveService:
                 pageToken=self._changes_token,
                 fields="nextPageToken,newStartPageToken,changes(fileId)",
                 pageSize=1,
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
             )
             .execute
         )
@@ -95,6 +99,8 @@ class DriveService:
                     pageToken=response["nextPageToken"],
                     fields="nextPageToken,newStartPageToken,changes(fileId)",
                     pageSize=100,
+                    supportsAllDrives=True,
+                    includeItemsFromAllDrives=True,
                 )
                 .execute
             )
@@ -127,7 +133,10 @@ class DriveService:
         )
         results = _with_retry(
             self.service.files()
-            .list(q=query, fields="files(id, name)", orderBy="name")
+            .list(
+                q=query, fields="files(id, name)", orderBy="name",
+                supportsAllDrives=True, includeItemsFromAllDrives=True,
+            )
             .execute
         )
         data = results.get("files", [])
@@ -155,7 +164,10 @@ class DriveService:
         )
         results = _with_retry(
             self.service.files()
-            .list(q=query, fields="files(id, name, mimeType)", orderBy="name")
+            .list(
+                q=query, fields="files(id, name, mimeType)", orderBy="name",
+                supportsAllDrives=True, includeItemsFromAllDrives=True,
+            )
             .execute
         )
         data = results.get("files", [])
@@ -179,7 +191,9 @@ class DriveService:
         service = self._get_thread_service()
 
         file_meta = _with_retry(
-            service.files().get(fileId=file_id, fields="name").execute
+            service.files()
+            .get(fileId=file_id, fields="name", supportsAllDrives=True)
+            .execute
         )
         filename = file_meta["name"]
 
@@ -209,7 +223,7 @@ class DriveService:
         }
         folder = _with_retry(
             self.service.files()
-            .create(body=metadata, fields="id, name")
+            .create(body=metadata, fields="id, name", supportsAllDrives=True)
             .execute
         )
 
@@ -229,7 +243,10 @@ class DriveService:
         )
         result = _with_retry(
             self.service.files()
-            .create(body=metadata, media_body=media, fields="id, name")
+            .create(
+                body=metadata, media_body=media, fields="id, name",
+                supportsAllDrives=True,
+            )
             .execute
         )
 
@@ -240,6 +257,39 @@ class DriveService:
         logger.info("upload_file: «%s» загружен, кеш файлов сброшен", filename)
 
         return {"id": result["id"], "name": result["name"]}
+
+    def update_file(
+        self, file_id: str, file_content: bytes, mime_type: str
+    ) -> dict:
+        media = MediaIoBaseUpload(
+            io.BytesIO(file_content), mimetype=mime_type
+        )
+        result = _with_retry(
+            self.service.files()
+            .update(
+                fileId=file_id, media_body=media, fields="id, name",
+                supportsAllDrives=True,
+            )
+            .execute
+        )
+
+        # Invalidate caches + advance token
+        folder_id = self._file_to_folder.get(file_id)
+        if folder_id:
+            self._file_list_cache.pop(folder_id, None)
+            self._invalidate_folder_files(folder_id)
+        self._file_content_cache.pop(file_id, None)
+        self._changes_token = self._get_start_page_token()
+        logger.info("update_file: «%s» обновлён", result["name"])
+
+        return {"id": result["id"], "name": result["name"]}
+
+    def find_file_by_name(self, folder_id: str, filename: str) -> dict | None:
+        files = self.list_files(folder_id)
+        for f in files:
+            if f["name"] == filename:
+                return f
+        return None
 
     @staticmethod
     def get_folder_link(folder_id: str) -> str:
