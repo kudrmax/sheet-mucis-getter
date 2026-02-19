@@ -18,12 +18,23 @@ def get_start_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
+NUMBER_EMOJI = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+
+
 def get_folders_inline_keyboard(
-    folders: list[dict], selected_ids: set[str]
+    folders: list[dict], selected_ids: list[str]
 ) -> InlineKeyboardMarkup:
+    use_numbers = len(selected_ids) >= 2
     buttons = []
     for folder in folders:
-        mark = "\u2705" if folder["id"] in selected_ids else "\u2b1c"
+        if folder["id"] in selected_ids:
+            if use_numbers:
+                idx = selected_ids.index(folder["id"])
+                mark = NUMBER_EMOJI[idx] if idx < len(NUMBER_EMOJI) else f"({idx + 1})"
+            else:
+                mark = "\u2705"
+        else:
+            mark = "\u2b1c"
         buttons.append(
             [
                 InlineKeyboardButton(

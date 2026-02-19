@@ -60,7 +60,7 @@ async def choose_sheets(
     await state.update_data(folders=folders, selected_ids=[])
     await message.answer(
         "Выберите папки для скачивания:",
-        reply_markup=get_folders_inline_keyboard(folders, set()),
+        reply_markup=get_folders_inline_keyboard(folders, []),
     )
 
 
@@ -68,14 +68,14 @@ async def choose_sheets(
 async def toggle_folder(callback: CallbackQuery, state: FSMContext):
     folder_id = callback.data.split(":", 1)[1]
     data = await state.get_data()
-    selected = set(data.get("selected_ids", []))
+    selected = list(data.get("selected_ids", []))
 
     if folder_id in selected:
-        selected.discard(folder_id)
+        selected.remove(folder_id)
     else:
-        selected.add(folder_id)
+        selected.append(folder_id)
 
-    await state.update_data(selected_ids=list(selected))
+    await state.update_data(selected_ids=selected)
     await callback.message.edit_reply_markup(
         reply_markup=get_folders_inline_keyboard(data["folders"], selected)
     )
@@ -86,15 +86,15 @@ async def toggle_folder(callback: CallbackQuery, state: FSMContext):
 async def select_all_folders(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     folders = data["folders"]
-    selected = set(data.get("selected_ids", []))
-    all_ids = {f["id"] for f in folders}
+    selected = list(data.get("selected_ids", []))
+    all_ids = [f["id"] for f in folders]
 
-    if selected == all_ids:
-        selected = set()
+    if set(selected) == set(all_ids):
+        selected = []
     else:
         selected = all_ids
 
-    await state.update_data(selected_ids=list(selected))
+    await state.update_data(selected_ids=selected)
     await callback.message.edit_reply_markup(
         reply_markup=get_folders_inline_keyboard(folders, selected)
     )
@@ -108,7 +108,7 @@ async def download_selected(
     drive: DriveService,
 ):
     data = await state.get_data()
-    selected = set(data.get("selected_ids", []))
+    selected = list(data.get("selected_ids", []))
     folders = data["folders"]
 
     if not selected:
@@ -118,19 +118,22 @@ async def download_selected(
     await callback.message.edit_text("Скачиваю файлы...")
     await callback.answer()
 
-    # Collect all download tasks across all selected folders
+    # Collect all download tasks across all selected folders (in selection order)
     all_tasks = []
-    selected_folders = [f for f in folders if f["id"] in selected]
+    folder_by_id = {f["id"]: f for f in folders}
+    selected_folders = [folder_by_id[fid] for fid in selected if fid in folder_by_id]
+    use_numbers = len(selected_folders) >= 2
     folder_links = []
 
-    for folder in selected_folders:
+    for idx, folder in enumerate(selected_folders, 1):
         files = drive.list_files(folder["id"])
         if not files:
             continue
+        display_name = f"{idx}. {folder['name']}" if use_numbers else folder["name"]
         link = DriveService.get_folder_link(folder["id"])
-        folder_links.append(f'<a href="{link}">{folder["name"]}</a>')
+        folder_links.append(f'<a href="{link}">{display_name}</a>')
         for file_meta in files:
-            all_tasks.append((folder["name"], file_meta))
+            all_tasks.append((display_name, file_meta))
 
     if not all_tasks:
         await state.clear()
