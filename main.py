@@ -10,6 +10,7 @@ from services.drive_service import DriveService
 
 async def main():
     logging.basicConfig(level=logging.INFO)
+    logging.getLogger("googleapiclient.discovery_cache").setLevel(logging.ERROR)
 
     bot = Bot(token=config.BOT_TOKEN)
     dp = Dispatcher()
