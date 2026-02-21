@@ -7,14 +7,14 @@ from aiogram.types import (
 
 CHOOSE_SHEETS = "Выбрать ноты"
 UPLOAD_SHEETS = "Загрузить ноты"
-CIFROVKI = "Цифровки"
+FORMS = "Формы"
 
 
 def get_start_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=CHOOSE_SHEETS), KeyboardButton(text=UPLOAD_SHEETS)],
-            [KeyboardButton(text=CIFROVKI)],
+            [KeyboardButton(text=FORMS)],
         ],
         resize_keyboard=True,
     )
@@ -107,23 +107,23 @@ def get_more_files_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-# ── Cifrovka keyboards ──
+# ── Form keyboards ──
 
 
-def get_cifrovka_folder_keyboard(
+def get_form_folder_keyboard(
     folders: list[dict],
 ) -> InlineKeyboardMarkup:
     buttons = [
-        [InlineKeyboardButton(text=f["name"], callback_data=f"cif_f:{i}")]
+        [InlineKeyboardButton(text=f["name"], callback_data=f"frm_f:{i}")]
         for i, f in enumerate(folders)
     ]
     buttons.append(
-        [InlineKeyboardButton(text="\u2b05\ufe0f Назад", callback_data="cif_back")]
+        [InlineKeyboardButton(text="\u2b05\ufe0f Назад", callback_data="frm_back")]
     )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def get_cifrovka_view_keyboard(
+def get_form_view_keyboard(
     current_idx: int, total: int, *, is_pinned: bool = False,
 ) -> InlineKeyboardMarkup:
     rows = []
@@ -132,45 +132,45 @@ def get_cifrovka_view_keyboard(
     if total > 1:
         nav_row = []
         if current_idx > 0:
-            nav_row.append(InlineKeyboardButton(text="\u25c0\ufe0f", callback_data="cif_prev"))
+            nav_row.append(InlineKeyboardButton(text="\u25c0\ufe0f", callback_data="frm_prev"))
         nav_row.append(
-            InlineKeyboardButton(text=f"{current_idx + 1}/{total}", callback_data="cif_noop")
+            InlineKeyboardButton(text=f"{current_idx + 1}/{total}", callback_data="frm_noop")
         )
         if current_idx < total - 1:
-            nav_row.append(InlineKeyboardButton(text="\u25b6\ufe0f", callback_data="cif_next"))
+            nav_row.append(InlineKeyboardButton(text="\u25b6\ufe0f", callback_data="frm_next"))
         rows.append(nav_row)
 
     # Action row
     action_row = [
-        InlineKeyboardButton(text="\u270f\ufe0f", callback_data="cif_edit"),
-        InlineKeyboardButton(text="\U0001f5d1", callback_data="cif_delete"),
-        InlineKeyboardButton(text="\u2795", callback_data="cif_new"),
+        InlineKeyboardButton(text="\u270f\ufe0f", callback_data="frm_edit"),
+        InlineKeyboardButton(text="\U0001f5d1", callback_data="frm_delete"),
+        InlineKeyboardButton(text="\u2795", callback_data="frm_new"),
     ]
     if total > 1:
         pin_text = "\U0001f4cc" if is_pinned else "\U0001f4cd"
-        action_row.append(InlineKeyboardButton(text=pin_text, callback_data="cif_pin"))
+        action_row.append(InlineKeyboardButton(text=pin_text, callback_data="frm_pin"))
     rows.append(action_row)
 
-    rows.append([InlineKeyboardButton(text="\u2b05\ufe0f Назад", callback_data="cif_back")])
+    rows.append([InlineKeyboardButton(text="\u2b05\ufe0f Назад", callback_data="frm_back")])
 
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def get_cifrovka_empty_keyboard() -> InlineKeyboardMarkup:
+def get_form_empty_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="\u2795 Создать", callback_data="cif_new")],
-            [InlineKeyboardButton(text="\u2b05\ufe0f Назад", callback_data="cif_back")],
+            [InlineKeyboardButton(text="\u2795 Создать", callback_data="frm_new")],
+            [InlineKeyboardButton(text="\u2b05\ufe0f Назад", callback_data="frm_back")],
         ]
     )
 
 
-def get_cifrovka_delete_confirm_keyboard() -> InlineKeyboardMarkup:
+def get_form_delete_confirm_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="\U0001f5d1 Да, удалить", callback_data="cif_del_yes"),
-                InlineKeyboardButton(text="Отмена", callback_data="cif_del_no"),
+                InlineKeyboardButton(text="\U0001f5d1 Да, удалить", callback_data="frm_del_yes"),
+                InlineKeyboardButton(text="Отмена", callback_data="frm_del_no"),
             ]
         ]
     )

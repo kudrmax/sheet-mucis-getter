@@ -9,7 +9,7 @@ from services.drive_service import DriveService
 
 logger = logging.getLogger(__name__)
 
-CSV_FILENAME = "цифровки.csv"
+CSV_FILENAME = "формы.csv"
 CSV_MIME = "text/csv"
 CSV_FIELDS = [
     "folder_id", "folder_name", "version", "content",
@@ -19,7 +19,7 @@ BOM = "\ufeff"
 
 
 @dataclass
-class Cifrovka:
+class Form:
     folder_id: str
     folder_name: str
     version: int
@@ -31,7 +31,7 @@ class Cifrovka:
     pinned: bool = False
 
 
-class CifrovkaService:
+class FormService:
     def __init__(self, drive: DriveService, root_folder_id: str):
         self._drive = drive
         self._root_folder_id = root_folder_id
@@ -41,7 +41,7 @@ class CifrovkaService:
         file_info = self._drive.find_file_by_name(self._root_folder_id, CSV_FILENAME)
         return file_info["id"] if file_info else None
 
-    def _load_csv(self) -> list[Cifrovka]:
+    def _load_csv(self) -> list[Form]:
         file_info = self._drive.find_file_by_name(self._root_folder_id, CSV_FILENAME)
         if not file_info:
             return []
@@ -54,7 +54,7 @@ class CifrovkaService:
         reader = csv.DictReader(io.StringIO(text))
         rows = []
         for row in reader:
-            rows.append(Cifrovka(
+            rows.append(Form(
                 folder_id=row["folder_id"],
                 folder_name=row["folder_name"],
                 version=int(row["version"]),
@@ -67,7 +67,7 @@ class CifrovkaService:
             ))
         return rows
 
-    def _save_csv(self, rows: list[Cifrovka]) -> None:
+    def _save_csv(self, rows: list[Form]) -> None:
         buf = io.StringIO()
         buf.write(BOM)
         writer = csv.DictWriter(
@@ -88,14 +88,14 @@ class CifrovkaService:
             )
         self._drive.update_file(file_id, data, CSV_MIME)
 
-    def _filter(self, rows: list[Cifrovka], folder_id: str, folder_name: str) -> list[Cifrovka]:
+    def _filter(self, rows: list[Form], folder_id: str, folder_name: str) -> list[Form]:
         by_id = [r for r in rows if r.folder_id == folder_id]
         if by_id:
             return by_id
         return [r for r in rows if r.folder_name == folder_name]
 
     @staticmethod
-    def _sort_for_display(versions: list[Cifrovka]) -> list[Cifrovka]:
+    def _sort_for_display(versions: list[Form]) -> list[Form]:
         """Sort by version ascending, pinned version goes last.
         If none explicitly pinned, the highest version is naturally last."""
         pinned = [v for v in versions if v.pinned]
@@ -105,13 +105,13 @@ class CifrovkaService:
             return unpinned + pinned
         return unpinned
 
-    def get_versions(self, folder_id: str, folder_name: str) -> list[Cifrovka]:
+    def get_versions(self, folder_id: str, folder_name: str) -> list[Form]:
         with self._lock:
             rows = self._load_csv()
         matched = self._filter(rows, folder_id, folder_name)
         return self._sort_for_display(matched)
 
-    def get_latest_version(self, folder_id: str, folder_name: str) -> Cifrovka | None:
+    def get_latest_version(self, folder_id: str, folder_name: str) -> Form | None:
         versions = self.get_versions(folder_id, folder_name)
         return versions[0] if versions else None
 
@@ -122,7 +122,7 @@ class CifrovkaService:
         content: str,
         author: str,
         note: str = "",
-    ) -> Cifrovka:
+    ) -> Form:
         with self._lock:
             rows = self._load_csv()
             existing = self._filter(rows, folder_id, folder_name)
@@ -131,7 +131,7 @@ class CifrovkaService:
             next_ver = max((e.version for e in existing), default=0) + 1
             now = datetime.now(timezone.utc).isoformat()
 
-            entry = Cifrovka(
+            entry = Form(
                 folder_id=folder_id,
                 folder_name=folder_name,
                 version=next_ver,
@@ -153,7 +153,7 @@ class CifrovkaService:
         content: str,
         note: str,
         author: str,
-    ) -> Cifrovka | None:
+    ) -> Form | None:
         with self._lock:
             rows = self._load_csv()
             for r in rows:
@@ -195,10 +195,8 @@ class CifrovkaService:
                 return False
 
             if target.pinned:
-                # Unpin — revert to implicit (latest by created_at)
                 target.pinned = False
             else:
-                # Unpin all others in this folder, pin target
                 for r in folder_rows:
                     r.pinned = False
                 target.pinned = True

@@ -4,9 +4,9 @@ import logging
 from aiogram import Bot, Dispatcher
 
 import config
-from bot.cifrovka_handlers import router as cifrovka_router
+from bot.form_handlers import router as form_router
 from bot.handlers import router
-from services.cifrovka_service import CifrovkaService
+from services.form_service import FormService
 from services.drive_service import DriveService
 
 
@@ -19,13 +19,13 @@ async def main():
 
     drive = DriveService(config.CREDENTIALS_PATH)
 
-    cifrovka_service = CifrovkaService(drive, config.GOOGLE_DRIVE_FOLDER_ID)
+    form_service = FormService(drive, config.GOOGLE_DRIVE_FOLDER_ID)
 
-    dp.include_router(cifrovka_router)
+    dp.include_router(form_router)
     dp.include_router(router)
     dp["drive"] = drive
     dp["root_folder_id"] = config.GOOGLE_DRIVE_FOLDER_ID
-    dp["cifrovka_service"] = cifrovka_service
+    dp["form_service"] = form_service
 
     await dp.start_polling(bot)
 
