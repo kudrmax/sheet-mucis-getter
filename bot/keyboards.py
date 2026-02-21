@@ -118,53 +118,58 @@ def get_cifrovka_folder_keyboard(
         for i, f in enumerate(folders)
     ]
     buttons.append(
-        [InlineKeyboardButton(text="Назад", callback_data="cif_back")]
+        [InlineKeyboardButton(text="\u2b05\ufe0f Назад", callback_data="cif_back")]
     )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def get_cifrovka_actions_keyboard(has_cifrovka: bool) -> InlineKeyboardMarkup:
-    if has_cifrovka:
-        buttons = [
-            [
-                InlineKeyboardButton(text="Все версии", callback_data="cif_versions"),
-                InlineKeyboardButton(text="Новая версия", callback_data="cif_new"),
-            ],
-            [
-                InlineKeyboardButton(text="Редактировать", callback_data="cif_edit"),
-                InlineKeyboardButton(text="Удалить", callback_data="cif_delete"),
-            ],
-            [InlineKeyboardButton(text="Назад", callback_data="cif_back")],
-        ]
-    else:
-        buttons = [
-            [InlineKeyboardButton(text="Создать", callback_data="cif_new")],
-            [InlineKeyboardButton(text="Назад", callback_data="cif_back")],
-        ]
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
-
-
-def get_cifrovka_versions_keyboard(
-    versions: list,
+def get_cifrovka_view_keyboard(
+    current_idx: int, total: int, *, is_pinned: bool = False,
 ) -> InlineKeyboardMarkup:
-    buttons = [
-        [InlineKeyboardButton(
-            text=f"v{v.version} ({v.created_at[:10]}) — {v.author}",
-            callback_data=f"cif_v:{v.version}",
-        )]
-        for v in versions
+    rows = []
+
+    # Navigation row (only if more than 1 version)
+    if total > 1:
+        nav_row = []
+        if current_idx > 0:
+            nav_row.append(InlineKeyboardButton(text="\u25c0\ufe0f", callback_data="cif_prev"))
+        nav_row.append(
+            InlineKeyboardButton(text=f"{current_idx + 1}/{total}", callback_data="cif_noop")
+        )
+        if current_idx < total - 1:
+            nav_row.append(InlineKeyboardButton(text="\u25b6\ufe0f", callback_data="cif_next"))
+        rows.append(nav_row)
+
+    # Action row
+    action_row = [
+        InlineKeyboardButton(text="\u270f\ufe0f", callback_data="cif_edit"),
+        InlineKeyboardButton(text="\U0001f5d1", callback_data="cif_delete"),
+        InlineKeyboardButton(text="\u2795", callback_data="cif_new"),
     ]
-    buttons.append(
-        [InlineKeyboardButton(text="Назад", callback_data="cif_back_view")]
+    if total > 1:
+        pin_text = "\U0001f4cc" if is_pinned else "\U0001f4cd"
+        action_row.append(InlineKeyboardButton(text=pin_text, callback_data="cif_pin"))
+    rows.append(action_row)
+
+    rows.append([InlineKeyboardButton(text="\u2b05\ufe0f Назад", callback_data="cif_back")])
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def get_cifrovka_empty_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="\u2795 Создать", callback_data="cif_new")],
+            [InlineKeyboardButton(text="\u2b05\ufe0f Назад", callback_data="cif_back")],
+        ]
     )
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def get_cifrovka_delete_confirm_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="Да, удалить", callback_data="cif_del_yes"),
+                InlineKeyboardButton(text="\U0001f5d1 Да, удалить", callback_data="cif_del_yes"),
                 InlineKeyboardButton(text="Отмена", callback_data="cif_del_no"),
             ]
         ]

@@ -13,7 +13,7 @@ CSV_FILENAME = "цифровки.csv"
 CSV_MIME = "text/csv"
 CSV_FIELDS = [
     "folder_id", "folder_name", "version", "content",
-    "author", "created_at", "updated_at", "note",
+    "author", "created_at", "updated_at", "note", "pinned",
 ]
 BOM = "\ufeff"
 
@@ -28,6 +28,7 @@ class Cifrovka:
     created_at: str
     updated_at: str
     note: str = ""
+    pinned: bool = False
 
 
 class CifrovkaService:
@@ -62,6 +63,7 @@ class CifrovkaService:
                 created_at=row["created_at"],
                 updated_at=row["updated_at"],
                 note=row.get("note", ""),
+                pinned=row.get("pinned", "").lower() == "true",
             ))
         return rows
 
@@ -73,7 +75,9 @@ class CifrovkaService:
         )
         writer.writeheader()
         for r in rows:
-            writer.writerow({f.name: getattr(r, f.name) for f in fields(r)})
+            row_dict = {f.name: getattr(r, f.name) for f in fields(r)}
+            row_dict["pinned"] = "true" if r.pinned else "false"
+            writer.writerow(row_dict)
 
         data = buf.getvalue().encode("utf-8")
         file_id = self._get_csv_file_id()
@@ -87,18 +91,29 @@ class CifrovkaService:
     def _filter(self, rows: list[Cifrovka], folder_id: str, folder_name: str) -> list[Cifrovka]:
         by_id = [r for r in rows if r.folder_id == folder_id]
         if by_id:
-            return sorted(by_id, key=lambda r: r.version)
-        by_name = [r for r in rows if r.folder_name == folder_name]
-        return sorted(by_name, key=lambda r: r.version)
+            return by_id
+        return [r for r in rows if r.folder_name == folder_name]
+
+    @staticmethod
+    def _sort_for_display(versions: list[Cifrovka]) -> list[Cifrovka]:
+        """Sort by version ascending, pinned version goes last.
+        If none explicitly pinned, the highest version is naturally last."""
+        pinned = [v for v in versions if v.pinned]
+        unpinned = [v for v in versions if not v.pinned]
+        unpinned.sort(key=lambda v: v.version)
+        if pinned:
+            return unpinned + pinned
+        return unpinned
 
     def get_versions(self, folder_id: str, folder_name: str) -> list[Cifrovka]:
         with self._lock:
             rows = self._load_csv()
-        return self._filter(rows, folder_id, folder_name)
+        matched = self._filter(rows, folder_id, folder_name)
+        return self._sort_for_display(matched)
 
     def get_latest_version(self, folder_id: str, folder_name: str) -> Cifrovka | None:
         versions = self.get_versions(folder_id, folder_name)
-        return versions[-1] if versions else None
+        return versions[0] if versions else None
 
     def create_version(
         self,
@@ -111,7 +126,9 @@ class CifrovkaService:
         with self._lock:
             rows = self._load_csv()
             existing = self._filter(rows, folder_id, folder_name)
-            next_ver = existing[-1].version + 1 if existing else 1
+            for e in existing:
+                e.pinned = False
+            next_ver = max((e.version for e in existing), default=0) + 1
             now = datetime.now(timezone.utc).isoformat()
 
             entry = Cifrovka(
@@ -123,6 +140,7 @@ class CifrovkaService:
                 created_at=now,
                 updated_at=now,
                 note=note,
+                pinned=False,
             )
             rows.append(entry)
             self._save_csv(rows)
@@ -159,3 +177,31 @@ class CifrovkaService:
                 return False
             self._save_csv(new_rows)
         return True
+
+    def toggle_pin(self, folder_id: str, version: int) -> bool:
+        """Pin version if not pinned (unpins others), unpin if already pinned.
+        Returns new pinned state."""
+        with self._lock:
+            rows = self._load_csv()
+            target = None
+            folder_rows = []
+            for r in rows:
+                if r.folder_id == folder_id:
+                    folder_rows.append(r)
+                    if r.version == version:
+                        target = r
+
+            if not target:
+                return False
+
+            if target.pinned:
+                # Unpin — revert to implicit (latest by created_at)
+                target.pinned = False
+            else:
+                # Unpin all others in this folder, pin target
+                for r in folder_rows:
+                    r.pinned = False
+                target.pinned = True
+
+            self._save_csv(rows)
+            return target.pinned
